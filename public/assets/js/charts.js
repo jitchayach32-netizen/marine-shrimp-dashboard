@@ -71,6 +71,63 @@ const ShrimpCharts = {
     });
   },
 
+  // เส้นแนวโน้มรายเดือน เทียบหลายปีซ้อนกัน (แกน X คงที่ 12 เดือนเสมอ)
+  // yearDatasets: [{ year, data }] เรียงปีจากน้อยไปมาก (ผู้เรียกต้อง sort มาก่อน)
+  // แต่ละปีได้สีต่างกันตามลำดับ --series-1..8, แกน Y auto-scale อิสระเพราะเป็นคนละ Chart instance ต่อการเรียกครั้งหนึ่ง
+  yearOverYearLine(canvas, monthLabels, yearDatasets) {
+    const style = getComputedStyle(document.documentElement);
+    const seriesVars = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5', '--series-6', '--series-7', '--series-8'];
+
+    const datasets = yearDatasets.map(({ year, data }, i) => {
+      const color = style.getPropertyValue(seriesVars[i % seriesVars.length]).trim();
+      return {
+        label: `พ.ศ. ${year}`,
+        data,
+        borderColor: color,
+        backgroundColor: color + '22',
+        borderWidth: 2,
+        pointRadius: 3,
+        fill: false,
+        tension: 0.15,
+        spanGaps: false
+      };
+    });
+
+    return new Chart(canvas, {
+      type: 'line',
+      data: { labels: monthLabels, datasets },
+      options: this.baseOptions()
+    });
+  },
+
+  // เส้นแนวโน้มรายเดือน แสดงทุกหมวดพร้อมกันในกราฟเดียว (ใช้กับหน้าราคา - ทุกขนาดในปีเดียว)
+  // sizeDatasets: [{ label, data }] เรียงตามลำดับคงที่ (เช่น ขนาด 40,50,60,...) เพื่อให้สีเดียวกัน=หมวดเดียวกันทุกกราฟที่เรียกฟังก์ชันนี้
+  facetedLineChart(canvas, monthLabels, sizeDatasets) {
+    const style = getComputedStyle(document.documentElement);
+    const seriesVars = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5', '--series-6', '--series-7', '--series-8'];
+
+    const datasets = sizeDatasets.map(({ label, data }, i) => {
+      const color = style.getPropertyValue(seriesVars[i % seriesVars.length]).trim();
+      return {
+        label,
+        data,
+        borderColor: color,
+        backgroundColor: color + '22',
+        borderWidth: 2,
+        pointRadius: 2,
+        fill: false,
+        tension: 0.15,
+        spanGaps: false
+      };
+    });
+
+    return new Chart(canvas, {
+      type: 'line',
+      data: { labels: monthLabels, datasets },
+      options: this.baseOptions()
+    });
+  },
+
   destroy(chartInstance) {
     if (chartInstance) chartInstance.destroy();
   }

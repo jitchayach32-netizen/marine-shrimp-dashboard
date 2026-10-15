@@ -22,22 +22,24 @@
         <label for="regionFilter">ภาค (เลือกได้หลายรายการ)</label>
         <select id="regionFilter" multiple></select>
       </div>
-      <div class="filter-field">
-        <label for="yearFromFilter">ปีเริ่มต้น</label>
-        <select id="yearFromFilter"></select>
-      </div>
-      <div class="filter-field">
-        <label for="yearToFilter">ปีสิ้นสุด</label>
-        <select id="yearToFilter"></select>
+      <div class="filter-field filter-field--checkboxes">
+        <label>ปี (พ.ศ.) - เลือกได้หลายปี</label>
+        <div class="checkbox-group" id="yearFilter"></div>
       </div>
       <button class="btn btn-primary" id="applyFilter">แสดงผล</button>
     </div>
 
     <div class="export-bar" id="exportBar"></div>
 
-    <div class="card">
-      <div class="card__title">แนวโน้มรายเดือน (จำนวนฉบับ)</div>
-      <div style="height: 300px;"><canvas id="trendChart"></canvas></div>
+    <div class="two-col-grid">
+      <div class="card">
+        <div class="card__title">แนวโน้มรายเดือน (จำนวนฉบับ) - กุ้งขาวแวนนาไม</div>
+        <div style="height: 300px;"><canvas id="trendChartWhiteleg"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card__title">แนวโน้มรายเดือน (จำนวนฉบับ) - กุ้งกุลาดำ</div>
+        <div style="height: 300px;"><canvas id="trendChartBlackTiger"></canvas></div>
+      </div>
     </div>
 
     <div class="card">

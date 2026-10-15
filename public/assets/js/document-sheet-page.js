@@ -1,8 +1,9 @@
 // Logic กลางสำหรับหน้าข้อมูลชีท 6-7 (document_facts) - แต่ละหน้า HTML เรียก initDocumentSheetPage(config)
 async function initDocumentSheetPage(config) {
   const { sheetType, title } = config;
-  let trendChart, regionChart;
+  let trendChartWhiteleg, trendChartBlackTiger, regionChart;
   let allRegions = [];
+  let allYears = [];
 
   document.getElementById('pageTitle').textContent = title;
   document.getElementById('pageSubtitle').textContent = 'หน่วย: ฉบับ / แห่ง';
@@ -27,31 +28,36 @@ async function initDocumentSheetPage(config) {
       regionSelect.appendChild(opt);
     }
 
-    const yearSelect = document.getElementById('yearFromFilter');
-    const yearToSelect = document.getElementById('yearToFilter');
     const currentBE = new Date().getFullYear() + 543;
-    for (let y = 2565; y <= currentBE; y++) {
-      const opt1 = document.createElement('option');
-      opt1.value = y; opt1.textContent = `พ.ศ. ${y}`;
-      yearSelect.appendChild(opt1);
-      const opt2 = document.createElement('option');
-      opt2.value = y; opt2.textContent = `พ.ศ. ${y}`;
-      if (y === currentBE) opt2.selected = true;
-      yearToSelect.appendChild(opt2);
-    }
-    yearSelect.value = 2565;
+    allYears = [];
+    for (let y = 2565; y <= currentBE; y++) allYears.push(y);
+
+    const yearGroup = document.getElementById('yearFilter');
+    yearGroup.innerHTML = allYears.map((y) => `
+      <label class="checkbox-group__item">
+        <input type="checkbox" class="year-checkbox" value="${y}" ${y >= currentBE - 1 ? 'checked' : ''} />
+        พ.ศ. ${y}
+      </label>
+    `).join('');
   }
 
   function getSelectedValues(selectEl) {
     return Array.from(selectEl.selectedOptions).map((o) => o.value);
   }
 
+  function getSelectedYears() {
+    return Array.from(document.querySelectorAll('#yearFilter .year-checkbox:checked'))
+      .map((cb) => parseInt(cb.value, 10))
+      .sort((a, b) => a - b);
+  }
+
   function currentFilters() {
+    const years = getSelectedYears();
     return {
       provinceIds: getSelectedValues(document.getElementById('provinceFilter')),
       regions: getSelectedValues(document.getElementById('regionFilter')),
-      yearFrom: document.getElementById('yearFromFilter').value,
-      yearTo: document.getElementById('yearToFilter').value
+      yearFrom: years.length > 0 ? years[0] : undefined,
+      yearTo: years.length > 0 ? years[years.length - 1] : undefined
     };
   }
 
@@ -59,10 +65,22 @@ async function initDocumentSheetPage(config) {
     const tableWrap = document.getElementById('tableWrap');
     tableWrap.innerHTML = '<div class="loading-state">กำลังโหลดข้อมูล...</div>';
 
+    const selectedYears = getSelectedYears();
+    if (selectedYears.length === 0) {
+      tableWrap.innerHTML = '<div class="empty-state">กรุณาเลือกอย่างน้อย 1 ปี</div>';
+      ShrimpCharts.destroy(trendChartWhiteleg);
+      ShrimpCharts.destroy(trendChartBlackTiger);
+      ShrimpCharts.destroy(regionChart);
+      return;
+    }
+
     const rows = await Api.get(`/api/data/documents/${sheetType}` + Api.buildQuery(currentFilters()));
-    renderTable(rows);
-    renderTrendChart(rows);
-    renderRegionChart(rows);
+    const selectedYearSet = new Set(selectedYears);
+    const rowsForSelectedYears = rows.filter((r) => selectedYearSet.has(r.year));
+
+    renderTable(rowsForSelectedYears);
+    renderTrendChart(rowsForSelectedYears, selectedYears);
+    renderRegionChart(rowsForSelectedYears);
   }
 
   function renderTable(rows) {
@@ -98,23 +116,33 @@ async function initDocumentSheetPage(config) {
     `;
   }
 
-  function renderTrendChart(rows) {
-    const byYearMonth = new Map();
-    for (const r of rows) {
-      const key = `${r.year}-${String(r.month).padStart(2, '0')}`;
-      if (!byYearMonth.has(key)) byYearMonth.set(key, { whiteleg: 0, black_tiger: 0 });
-      byYearMonth.get(key)[r.species] += (r.doc_count || 0);
-    }
-    const keys = [...byYearMonth.keys()].sort();
-    const labels = keys.map((k) => {
-      const [y, m] = k.split('-');
-      return `${MONTH_LABELS_TH[parseInt(m, 10) - 1]} ${y}`;
-    });
-    const whiteleg = keys.map((k) => byYearMonth.get(k).whiteleg);
-    const blackTiger = keys.map((k) => byYearMonth.get(k).black_tiger);
+  // group ข้อมูลเป็น { year: [12 เดือน] } ต่อสายพันธุ์ - เดือนที่ไม่มีข้อมูลเป็น null ไม่ใช่ 0
+  function buildYearMonthSeries(rows, species, selectedYears) {
+    const byYear = new Map(selectedYears.map((y) => [y, new Array(12).fill(null)]));
+    const hasValue = new Map(selectedYears.map((y) => [y, new Array(12).fill(false)]));
 
-    ShrimpCharts.destroy(trendChart);
-    trendChart = ShrimpCharts.monthlyTrendLine(document.getElementById('trendChart'), labels, whiteleg, blackTiger);
+    for (const r of rows) {
+      if (r.species !== species) continue;
+      if (!byYear.has(r.year)) continue;
+      if (r.doc_count == null) continue;
+      const monthIdx = r.month - 1;
+      const arr = byYear.get(r.year);
+      arr[monthIdx] = (hasValue.get(r.year)[monthIdx] ? arr[monthIdx] : 0) + r.doc_count;
+      hasValue.get(r.year)[monthIdx] = true;
+    }
+
+    return selectedYears.map((year) => ({ year, data: byYear.get(year) }));
+  }
+
+  function renderTrendChart(rows, selectedYears) {
+    ShrimpCharts.destroy(trendChartWhiteleg);
+    ShrimpCharts.destroy(trendChartBlackTiger);
+
+    const whitelegDatasets = buildYearMonthSeries(rows, 'whiteleg', selectedYears);
+    const blackTigerDatasets = buildYearMonthSeries(rows, 'black_tiger', selectedYears);
+
+    trendChartWhiteleg = ShrimpCharts.yearOverYearLine(document.getElementById('trendChartWhiteleg'), MONTH_LABELS_TH, whitelegDatasets);
+    trendChartBlackTiger = ShrimpCharts.yearOverYearLine(document.getElementById('trendChartBlackTiger'), MONTH_LABELS_TH, blackTigerDatasets);
   }
 
   function renderRegionChart(rows) {
@@ -159,6 +187,11 @@ async function initDocumentSheetPage(config) {
   document.addEventListener('shrimp:ready', async () => {
     setupExportButtons();
     await loadFilterOptions();
+    document.querySelectorAll('#yearFilter .year-checkbox').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        loadData().catch((err) => alert(err.message));
+      });
+    });
     loadData().catch((err) => {
       document.getElementById('tableWrap').innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${err.message}</div>`;
     });
