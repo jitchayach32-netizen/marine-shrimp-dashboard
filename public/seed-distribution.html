@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ปริมาณการจำหน่ายลูกพันธุ์กุ้ง - ระบบข้อมูลกุ้งทะเล</title>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="page__header">
+      <h1 class="page__title" id="pageTitle"></h1>
+      <p class="page__subtitle" id="pageSubtitle"></p>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-field">
+        <label for="provinceFilter">จังหวัด (เลือกได้หลายรายการ)</label>
+        <select id="provinceFilter" multiple></select>
+      </div>
+      <div class="filter-field">
+        <label for="regionFilter">ภาค (เลือกได้หลายรายการ)</label>
+        <select id="regionFilter" multiple></select>
+      </div>
+      <div class="filter-field">
+        <label for="yearFromFilter">ปีเริ่มต้น</label>
+        <select id="yearFromFilter"></select>
+      </div>
+      <div class="filter-field">
+        <label for="yearToFilter">ปีสิ้นสุด</label>
+        <select id="yearToFilter"></select>
+      </div>
+      <button class="btn btn-primary" id="applyFilter">แสดงผล</button>
+    </div>
+
+    <div class="export-bar" id="exportBar"></div>
+
+    <div class="card">
+      <div class="card__title">แนวโน้มรายเดือน</div>
+      <div style="height: 300px;"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">สรุปตามภาค</div>
+      <div style="height: 300px;"><canvas id="regionChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">ข้อมูลรายละเอียด</div>
+      <div id="tableWrap"><div class="loading-state">กำลังโหลดข้อมูล...</div></div>
+    </div>
+  </div>
+
+  <script src="/assets/js/vendor/chart.umd.js"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/navbar.js"></script>
+  <script src="/assets/js/charts.js"></script>
+  <script src="/assets/js/monthly-sheet-page.js"></script>
+  <script>
+    initMonthlySheetPage({
+      sheetType: 'seed_distribution',
+      title: 'ปริมาณการจำหน่ายลูกพันธุ์กุ้ง รายจังหวัด',
+      unitLabel: 'ล้านตัว',
+      valueLabel: 'ปริมาณ (ล้านตัว)'
+    });
+  </script>
+</body>
+</html>

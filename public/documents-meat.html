@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>เอกสารกำกับการจำหน่ายกุ้งเนื้อ - ระบบข้อมูลกุ้งทะเล</title>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="page__header">
+      <h1 class="page__title" id="pageTitle"></h1>
+      <p class="page__subtitle" id="pageSubtitle"></p>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-field">
+        <label for="provinceFilter">จังหวัด (เลือกได้หลายรายการ)</label>
+        <select id="provinceFilter" multiple></select>
+      </div>
+      <div class="filter-field">
+        <label for="regionFilter">ภาค (เลือกได้หลายรายการ)</label>
+        <select id="regionFilter" multiple></select>
+      </div>
+      <div class="filter-field">
+        <label for="yearFromFilter">ปีเริ่มต้น</label>
+        <select id="yearFromFilter"></select>
+      </div>
+      <div class="filter-field">
+        <label for="yearToFilter">ปีสิ้นสุด</label>
+        <select id="yearToFilter"></select>
+      </div>
+      <button class="btn btn-primary" id="applyFilter">แสดงผล</button>
+    </div>
+
+    <div class="export-bar" id="exportBar"></div>
+
+    <div class="card">
+      <div class="card__title">แนวโน้มรายเดือน (จำนวนฉบับ)</div>
+      <div style="height: 300px;"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">สรุปตามภาค</div>
+      <div style="height: 300px;"><canvas id="regionChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">ข้อมูลรายละเอียด</div>
+      <div id="tableWrap"><div class="loading-state">กำลังโหลดข้อมูล...</div></div>
+    </div>
+  </div>
+
+  <script src="/assets/js/vendor/chart.umd.js"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/navbar.js"></script>
+  <script src="/assets/js/charts.js"></script>
+  <script>
+    const MONTH_LABELS_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    function formatNumber(n) { return n == null ? '-' : n.toLocaleString('th-TH', { maximumFractionDigits: 2 }); }
+  </script>
+  <script src="/assets/js/document-sheet-page.js"></script>
+  <script>
+    initDocumentSheetPage({
+      sheetType: 'document_meat',
+      title: 'ปริมาณการออกเอกสารกำกับการจำหน่ายกุ้งเนื้อ'
+    });
+  </script>
+</body>
+</html>

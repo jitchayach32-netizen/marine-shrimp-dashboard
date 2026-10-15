@@ -1,0 +1,830 @@
+/* ธีมกลางของระบบ - ใช้ร่วมกันทุกหน้า */
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --surface-2: #ffffff;
+  --page-plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+
+  --series-1: #2a78d6; /* กุ้งขาวแวนนาไม */
+  --series-2: #eb6834; /* กุ้งกุลาดำ */
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --nav-bg: #0d2e4f;
+  --nav-text: #e8f0fb;
+  --nav-text-muted: #a9c2dc;
+  --nav-active: #2a78d6;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --surface-2: #212120;
+  --page-plane: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-2: #212120;
+    --page-plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 112.5%; /* ขยายขนาดตัวอักษรทั้งหน้า ~12% จากฐาน 16px -> 18px (ค่า font-size แบบ px ที่เหลือในไฟล์นี้อ้างอิงจากฐานนี้) */
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "Sarabun", sans-serif;
+  background: var(--page-plane);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+a {
+  color: var(--series-1);
+}
+
+/* ===== Navbar ===== */
+.navbar {
+  background: var(--nav-bg);
+  color: var(--nav-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px;
+  height: 56px;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar__brand {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--nav-text);
+  text-decoration: none;
+  white-space: nowrap;
+  margin-right: 16px;
+}
+
+.navbar__link {
+  color: var(--nav-text-muted);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.navbar__link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--nav-text);
+}
+
+.navbar__link.active {
+  background: var(--nav-active);
+  color: #ffffff;
+}
+
+.navbar__spacer {
+  flex: 1;
+}
+
+.navbar__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--nav-text-muted);
+}
+
+.navbar__role-badge {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--nav-text);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+}
+
+.navbar__theme-toggle,
+.navbar__logout {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--nav-text);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.navbar__theme-toggle:hover,
+.navbar__logout:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ===== Layout ===== */
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+.page__header {
+  margin-bottom: 20px;
+}
+
+.page__title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.page__subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ===== Card ===== */
+.card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.card__title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+/* ===== Stat tile ===== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-tile {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stat-tile__label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.stat-tile__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile__delta {
+  font-size: 0.75rem;
+  margin-top: 4px;
+}
+
+.stat-tile__delta.up { color: var(--status-good); }
+.stat-tile__delta.down { color: var(--status-critical); }
+
+/* ===== Filter bar ===== */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.filter-field label {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.filter-field select,
+.filter-field input {
+  border: 1px solid var(--baseline);
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  min-height: 34px;
+}
+
+.filter-field select[multiple] {
+  min-height: 90px;
+}
+
+.filter-field--checkboxes {
+  min-width: 320px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--baseline);
+  border-radius: 6px;
+  background: var(--surface-1);
+}
+
+.checkbox-group__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkbox-group__item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--series-1);
+}
+
+.checkbox-group__item--all {
+  font-weight: 600;
+  padding-right: 10px;
+  border-right: 1px solid var(--baseline);
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: var(--series-1);
+  color: #ffffff;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--baseline);
+  color: var(--text-primary);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* ===== Table ===== */
+.data-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  background: var(--surface-2);
+}
+
+table.data-table th,
+table.data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gridline);
+  text-align: left;
+  white-space: nowrap;
+}
+
+table.data-table th {
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+table.data-table td.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.badge-anomaly {
+  display: inline-block;
+  background: var(--status-warning);
+  color: #4a3600;
+  font-size: 0.625rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+.badge-missing {
+  display: inline-block;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* ===== Login page ===== */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.login-card h1 {
+  font-size: 1.125rem;
+  text-align: center;
+  margin: 0 0 4px;
+}
+
+.login-card p.sub {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  margin: 0 0 24px;
+}
+
+.login-field {
+  margin-bottom: 14px;
+}
+
+.login-field label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.login-field input {
+  width: 100%;
+  border: 1px solid var(--baseline);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.login-error {
+  background: rgba(208, 59, 59, 0.1);
+  color: var(--status-critical);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  margin-bottom: 14px;
+  display: none;
+}
+
+.login-hint {
+  margin-top: 20px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--gridline);
+  padding-top: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 20px;
+  font-size: 0.8125rem;
+}
+
+.loading-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px;
+  font-size: 0.8125rem;
+}
+
+/* ===== Choropleth map ===== */
+.choropleth-container {
+  width: 100%;
+  min-height: 200px;
+}
+
+.choropleth-svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.choropleth-path {
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.choropleth-path--hover {
+  filter: brightness(0.88);
+}
+
+.choropleth-path--dimmed {
+  opacity: 0.55;
+}
+
+.choropleth-tooltip {
+  position: absolute;
+  z-index: 1000;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.choropleth-legend {
+  margin-top: 12px;
+}
+
+.choropleth-legend__gradient {
+  display: flex;
+  height: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.choropleth-legend__swatch {
+  flex: 1;
+  display: inline-block;
+}
+
+.choropleth-legend__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.choropleth-legend__unit {
+  color: var(--text-muted);
+}
+
+.choropleth-legend__nodata {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.choropleth-legend__swatch--nodata {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--gridline);
+}
+
+/* ===== Expandable table (ภาค -> จังหวัด) ===== */
+.expandable-table {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.expandable-table__header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.expandable-table__header span:not(:first-child) {
+  text-align: right;
+  min-width: 60px;
+}
+
+.expandable-table__region-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gridline);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.expandable-table__region-row:hover {
+  background: var(--surface-1);
+}
+
+.expandable-table__region-row--selected,
+.expandable-table__province-row--selected {
+  background: rgba(42, 120, 214, 0.14);
+}
+
+.expandable-table__province-row {
+  cursor: pointer;
+}
+
+.expandable-table__province-row:hover {
+  background: var(--gridline);
+}
+
+.expandable-table__region-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expandable-table__toggle-icon {
+  display: inline-block;
+  width: 14px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.expandable-table__toggle-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.expandable-table__region-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 60px;
+}
+
+.expandable-table__province-rows {
+  display: none;
+}
+
+.expandable-table__province-rows.expanded {
+  display: block;
+}
+
+.expandable-table__province-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 12px 7px 32px;
+  border-bottom: 1px solid var(--gridline);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+}
+
+.expandable-table__province-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 60px;
+}
+
+/* ===== Dashboard: two-column card grid (ใช้ซ้ำได้ทุกคู่การ์ด) ===== */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .two-col-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ===== Metric split (กุ้งขาว / กุ้งกุลาดำ แยกคอลัมน์) ===== */
+.metric-split__species {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-split__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.metric-split__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.metric-split__row:last-child {
+  border-bottom: none;
+}
+
+.metric-split__row-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.metric-split__row-value {
+  text-align: right;
+}
+
+.metric-split__row-number {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-split__row-delta {
+  font-size: 0.6875rem;
+  margin-top: 2px;
+}
+
+.metric-split__row-delta.up { color: var(--status-good); }
+.metric-split__row-delta.down { color: var(--status-critical); }
+.metric-split__row-delta.flat { color: var(--text-muted); }
+
+/* ===== Rank table (Top 5 จังหวัด) ===== */
+.rank-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.rank-table th {
+  text-align: left;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--gridline);
+  font-size: 0.75rem;
+}
+
+.rank-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.rank-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-table__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* ===== Placeholder card (ข้อมูลยังไม่มีในระบบ) ===== */
+.placeholder-card {
+  border: 1px dashed var(--baseline);
+  border-radius: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface-1);
+}
+
+.placeholder-card__icon {
+  font-size: 1.75rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.placeholder-card__title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.placeholder-card__desc {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.badge-pending {
+  display: inline-block;
+  background: var(--gridline);
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+}

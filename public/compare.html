@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>เปรียบเทียบข้อมูล - ระบบข้อมูลกุ้งทะเล</title>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+  <style>
+    .series-row {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 1fr auto;
+      gap: 8px;
+      align-items: end;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      background: var(--surface-1);
+    }
+    .series-row .filter-field { min-width: 0; }
+    .series-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-right: 6px; }
+    .chart-mode-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+      font-size: 0.8125rem;
+    }
+    .chart-mode-bar label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .chart-legend-note {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page__header">
+      <h1 class="page__title">เปรียบเทียบข้อมูล</h1>
+      <p class="page__subtitle">เลือกได้หลายชุดข้อมูล ผสมชีท/สายพันธุ์/จังหวัด-ภาค/ราคา/ช่วงเวลาได้อย่างอิสระ เพื่อดูแนวโน้มเปรียบเทียบในกราฟเดียว</p>
+    </div>
+
+    <div class="card">
+      <div class="card__title">ชุดข้อมูลที่ต้องการเปรียบเทียบ</div>
+      <div id="seriesRows"></div>
+      <button class="btn btn-secondary" id="addSeries">+ เพิ่มชุดข้อมูล</button>
+      <button class="btn btn-primary" id="runCompare" style="margin-left: 8px;">เปรียบเทียบ</button>
+    </div>
+
+    <div class="card">
+      <div class="card__title">กราฟเปรียบเทียบแนวโน้มรายเดือน</div>
+      <div class="chart-mode-bar">
+        <label><input type="radio" name="chartMode" value="normalized" checked /> เทียบแนวโน้ม (% เปลี่ยนแปลงจากเดือนแรก)</label>
+        <label><input type="radio" name="chartMode" value="actual" /> ค่าจริง (หน่วยดั้งเดิม)</label>
+      </div>
+      <div style="height: 380px;"><canvas id="compareChart"></canvas></div>
+      <p class="chart-legend-note">หมายเหตุ: ราคาแสดงเป็นเส้นเสมอ ส่วนปริมาณ/จำนวนเอกสารแสดงเป็นแท่ง เพื่อให้แยกแยะประเภทข้อมูลได้ง่ายแม้ scale ต่างกันมาก</p>
+    </div>
+
+    <div class="card">
+      <div class="card__title">ตารางสรุปเปรียบเทียบ (ค่าจริงต่อชุดข้อมูล ต่อเดือน)</div>
+      <div id="compareTableWrap"><div class="empty-state">เลือกชุดข้อมูลแล้วกด "เปรียบเทียบ" เพื่อแสดงผล</div></div>
+    </div>
+  </div>
+
+  <script src="/assets/js/vendor/chart.umd.js"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/navbar.js"></script>
+  <script src="/assets/js/charts.js"></script>
+  <script>
+    const MONTH_LABELS_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const SERIES_COLOR_VARS = ['series-1','series-2','series-3','series-4','series-5','series-6','series-7','series-8'];
+
+    const SHEET_OPTIONS = [
+      { value: 'seed_distribution', label: 'จำหน่ายลูกพันธุ์ (ล้านตัว)', kind: 'monthly' },
+      { value: 'seed_stocking', label: 'ปล่อยลงเลี้ยง (ล้านตัว)', kind: 'monthly' },
+      { value: 'production_farm', label: 'ผลผลิต-ขายจากฟาร์ม (ตัน)', kind: 'monthly' },
+      { value: 'production_incoming', label: 'ผลผลิต-ขาเข้า (ตัน)', kind: 'monthly' },
+      { value: 'production_capacity', label: 'กำลังการผลิต (ตัน/ล้านตัว)', kind: 'monthly' },
+      { value: 'document_seed', label: 'เอกสารกำกับลูกพันธุ์ (ฉบับ)', kind: 'document' },
+      { value: 'document_meat', label: 'เอกสารกำกับกุ้งเนื้อ (ฉบับ)', kind: 'document' },
+      { value: 'prices', label: 'ราคากุ้งขาวแวนนาไม (บาท/กก.)', kind: 'prices' }
+    ];
+    const PRICE_SIZE_OPTIONS = ['40', '50', '60', '70', '80', '90', '100'];
+
+    let allProvinces = [], allRegions = [];
+    let seriesCount = 0;
+    let compareChart;
+    let lastResults = [];
+
+    async function loadLookups() {
+      [allProvinces, allRegions] = await Promise.all([
+        Api.get('/api/data/provinces'),
+        Api.get('/api/data/regions')
+      ]);
+    }
+
+    function dimensionFieldHtml(kind) {
+      if (kind === 'prices') {
+        return `
+          <div class="filter-field s-dimension-field">
+            <label>ขนาด (ตัว/กก.)</label>
+            <select class="s-size">
+              ${PRICE_SIZE_OPTIONS.map(s => `<option value="${s}" ${s === '60' ? 'selected' : ''}>${s} ตัว/กก.</option>`).join('')}
+            </select>
+          </div>
+        `;
+      }
+      return `
+        <div class="filter-field s-dimension-field">
+          <label>สายพันธุ์</label>
+          <select class="s-species">
+            <option value="whiteleg">กุ้งขาวแวนนาไม</option>
+            <option value="black_tiger">กุ้งกุลาดำ</option>
+            <option value="">รวมทั้งสองสายพันธุ์</option>
+          </select>
+        </div>
+      `;
+    }
+
+    function regionFieldHtml(kind) {
+      if (kind === 'prices') {
+        return `<div class="filter-field s-region-field" style="visibility:hidden;"><label>-</label><select disabled><option>ไม่มีมิติจังหวัด</option></select></div>`;
+      }
+      return `
+        <div class="filter-field s-region-field">
+          <label>ภาค (เว้นว่าง = ทั้งประเทศ)</label>
+          <select class="s-region">
+            <option value="">ทั้งประเทศ</option>
+            ${allRegions.map(r => `<option value="${r}">${r}</option>`).join('')}
+          </select>
+        </div>
+      `;
+    }
+
+    function addSeriesRow() {
+      seriesCount++;
+      const id = seriesCount;
+      const row = document.createElement('div');
+      row.className = 'series-row';
+      row.dataset.seriesId = id;
+
+      const colorVar = SERIES_COLOR_VARS[(id - 1) % SERIES_COLOR_VARS.length];
+      const defaultSheet = SHEET_OPTIONS[0];
+
+      row.innerHTML = `
+        <div class="filter-field">
+          <label><span class="series-swatch" style="background: var(--${colorVar});"></span>ชุดข้อมูล ${id} - ชีท</label>
+          <select class="s-sheet">
+            ${SHEET_OPTIONS.map(o => `<option value="${o.value}" data-kind="${o.kind}">${o.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="s-dimension-slot"></div>
+        <div class="s-region-slot"></div>
+        <div class="filter-field">
+          <label>ปี (พ.ศ.)</label>
+          <select class="s-year"></select>
+        </div>
+        <button class="btn btn-secondary s-remove" type="button">ลบ</button>
+      `;
+
+      const yearSelect = row.querySelector('.s-year');
+      const currentBE = new Date().getFullYear() + 543;
+      for (let y = 2565; y <= currentBE; y++) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = `พ.ศ. ${y}`;
+        if (y === currentBE) opt.selected = true;
+        yearSelect.appendChild(opt);
+      }
+
+      function refreshDimensionSlots(kind) {
+        row.querySelector('.s-dimension-slot').innerHTML = dimensionFieldHtml(kind);
+        row.querySelector('.s-region-slot').innerHTML = regionFieldHtml(kind);
+      }
+      refreshDimensionSlots(defaultSheet.kind);
+
+      row.querySelector('.s-sheet').addEventListener('change', (e) => {
+        const kind = e.target.selectedOptions[0].dataset.kind;
+        refreshDimensionSlots(kind);
+      });
+
+      row.querySelector('.s-remove').addEventListener('click', () => row.remove());
+      document.getElementById('seriesRows').appendChild(row);
+    }
+
+    function readSeriesConfigs() {
+      return Array.from(document.querySelectorAll('.series-row')).map((row) => {
+        const sheetSelect = row.querySelector('.s-sheet');
+        const sheetType = sheetSelect.value;
+        const sheetMeta = SHEET_OPTIONS.find((o) => o.value === sheetType);
+        const config = {
+          id: row.dataset.seriesId,
+          sheetType,
+          kind: sheetMeta.kind,
+          label: sheetMeta.label,
+          year: row.querySelector('.s-year').value
+        };
+        if (sheetMeta.kind === 'prices') {
+          config.sizeCategory = row.querySelector('.s-size').value;
+        } else {
+          config.species = row.querySelector('.s-species').value;
+          config.region = row.querySelector('.s-region').value;
+        }
+        return config;
+      });
+    }
+
+    async function fetchSeriesData(config) {
+      const byMonth = new Array(12).fill(0);
+
+      if (config.kind === 'prices') {
+        const rows = await Api.get('/api/data/prices' + Api.buildQuery({
+          yearFrom: yearBEtoCE(config.year), yearTo: yearBEtoCE(config.year), sizeCategories: [config.sizeCategory]
+        }));
+        for (const r of rows) {
+          if (r.price_baht == null) continue;
+          byMonth[r.month - 1] = r.price_baht;
+        }
+        return byMonth;
+      }
+
+      const filters = { yearFrom: config.year, yearTo: config.year };
+      if (config.region) filters.regions = [config.region];
+      if (config.species) filters.species = [config.species];
+
+      const path = config.kind === 'monthly'
+        ? `/api/data/monthly/${config.sheetType}`
+        : `/api/data/documents/${config.sheetType}`;
+      const rows = await Api.get(path + Api.buildQuery(filters));
+
+      const valueKey = config.kind === 'monthly' ? 'value' : 'doc_count';
+      for (const r of rows) {
+        if (r[valueKey] == null) continue;
+        byMonth[r.month - 1] += r[valueKey];
+      }
+      return byMonth;
+    }
+
+    // ชีท 8 (ราคา) ใช้ปี ค.ศ. ต่างจากชีทอื่นที่ใช้ พ.ศ. - แปลงให้ตรงก่อนยิง query
+    function yearBEtoCE(yearBE) {
+      return parseInt(yearBE, 10) - 543;
+    }
+
+    async function runCompare() {
+      const configs = readSeriesConfigs();
+      if (configs.length === 0) {
+        alert('กรุณาเพิ่มอย่างน้อย 1 ชุดข้อมูล');
+        return;
+      }
+
+      const tableWrap = document.getElementById('compareTableWrap');
+      tableWrap.innerHTML = '<div class="loading-state">กำลังโหลดข้อมูล...</div>';
+
+      lastResults = await Promise.all(configs.map(async (config) => ({
+        config,
+        monthly: await fetchSeriesData(config)
+      })));
+
+      renderChart(lastResults);
+      renderTable(lastResults);
+    }
+
+    function seriesLabelFor(config) {
+      if (config.kind === 'prices') {
+        return `${config.label} ขนาด ${config.sizeCategory} ตัว/กก. - ค.ศ.${yearBEtoCE(config.year)}`;
+      }
+      const speciesLabel = config.species === 'whiteleg' ? 'ขาวแวนนาไม' : config.species === 'black_tiger' ? 'กุลาดำ' : 'รวมสายพันธุ์';
+      const regionLabel = config.region || 'ทั้งประเทศ';
+      return `${config.label} - ${speciesLabel} - ${regionLabel} - พ.ศ.${config.year}`;
+    }
+
+    // Normalize เป็น index=100 ที่เดือนแรกที่มีค่า เพื่อเทียบ % เปลี่ยนแปลงข้ามหน่วยที่ scale ต่างกันมาก
+    function normalizeToIndex(monthly) {
+      const baseIdx = monthly.findIndex((v) => v != null && v !== 0);
+      if (baseIdx === -1) return monthly.map(() => null);
+      const base = monthly[baseIdx];
+      return monthly.map((v) => (v == null ? null : (v / base) * 100));
+    }
+
+    function getChartMode() {
+      return document.querySelector('input[name="chartMode"]:checked').value;
+    }
+
+    function renderChart(results) {
+      const mode = getChartMode();
+      const style = getComputedStyle(document.documentElement);
+
+      const datasets = results.map(({ config, monthly }, i) => {
+        const color = style.getPropertyValue('--' + SERIES_COLOR_VARS[i % SERIES_COLOR_VARS.length]).trim();
+        const isPrice = config.kind === 'prices';
+        const data = mode === 'normalized' ? normalizeToIndex(monthly) : monthly;
+
+        if (isPrice) {
+          return {
+            type: 'line',
+            label: seriesLabelFor(config),
+            data,
+            borderColor: color,
+            backgroundColor: color + '22',
+            borderWidth: 2,
+            pointRadius: 3,
+            fill: false,
+            tension: 0.15,
+            order: 0
+          };
+        }
+        return {
+          type: 'bar',
+          label: seriesLabelFor(config),
+          data,
+          backgroundColor: color + 'aa',
+          borderColor: color,
+          borderWidth: 1,
+          order: 1
+        };
+      });
+
+      ShrimpCharts.destroy(compareChart);
+      const baseOpts = ShrimpCharts.baseOptions();
+      compareChart = new Chart(document.getElementById('compareChart'), {
+        data: { labels: MONTH_LABELS_TH, datasets },
+        options: {
+          ...baseOpts,
+          scales: {
+            ...baseOpts.scales,
+            y: {
+              ...baseOpts.scales.y,
+              beginAtZero: mode !== 'normalized',
+              title: { display: true, text: mode === 'normalized' ? 'ดัชนี (เดือนแรก = 100)' : 'ค่าจริง (หน่วยผสม)' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTable(results) {
+      const tableWrap = document.getElementById('compareTableWrap');
+      const headerCols = results.map(({ config }) => `<th>${seriesLabelFor(config)}</th>`).join('');
+      const rowsHtml = MONTH_LABELS_TH.map((label, monthIdx) => {
+        const cells = results.map(({ monthly }) => {
+          const v = monthly[monthIdx];
+          return `<td class="num">${v == null ? '-' : v.toLocaleString('th-TH', { maximumFractionDigits: 2 })}</td>`;
+        }).join('');
+        return `<tr><td>${label}</td>${cells}</tr>`;
+      }).join('');
+
+      tableWrap.innerHTML = `
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>เดือน</th>${headerCols}</tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    document.addEventListener('shrimp:ready', async () => {
+      await loadLookups();
+      addSeriesRow();
+      addSeriesRow();
+    });
+
+    document.getElementById('addSeries').addEventListener('click', addSeriesRow);
+    document.getElementById('runCompare').addEventListener('click', () => {
+      runCompare().catch((err) => alert(err.message));
+    });
+    document.querySelectorAll('input[name="chartMode"]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        if (lastResults.length > 0) renderChart(lastResults);
+      });
+    });
+  </script>
+</body>
+</html>

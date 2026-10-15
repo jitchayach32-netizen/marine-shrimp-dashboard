@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ภาพรวม - ระบบข้อมูลกุ้งทะเล</title>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="page__header">
+      <h1 class="page__title">ภาพรวมข้อมูลการเพาะเลี้ยงกุ้งทะเล</h1>
+      <p class="page__subtitle">สรุปภาพรวมทั้งประเทศ - ข้อมูลล่าสุดจาก Google Sheet (ซิงค์อัตโนมัติทุก 15 นาที)</p>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-field">
+        <label for="mapMetric">ชุดข้อมูลแผนที่</label>
+        <select id="mapMetric">
+          <option value="seed_distribution">ปริมาณลูกพันธุ์ที่จำหน่าย (ล้านตัว)</option>
+          <option value="production_farm" selected>ผลผลิต (ฟาร์ม) (ตัน)</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="yearFilter">ปี (พ.ศ.)</label>
+        <select id="yearFilter"></select>
+      </div>
+      <div class="filter-field filter-field--checkboxes">
+        <label>เดือน (ไม่ติ๊ก = ทั้งปี)</label>
+        <div class="checkbox-group" id="monthFilter"></div>
+      </div>
+      <button class="btn btn-primary" id="applyFilter">แสดงผล</button>
+    </div>
+
+    <!-- ส่วนที่ 1: สรุปภาพรวม -->
+    <div class="stat-grid" id="statGrid">
+      <div class="loading-state">กำลังโหลดข้อมูล...</div>
+    </div>
+
+    <!-- ส่วนที่ 2: ผลผลิต+ลงลูกพันธุ์แยกชนิด -->
+    <div class="two-col-grid">
+      <div class="card">
+        <div class="card__title">ผลผลิตและการลงลูกพันธุ์ - กุ้งขาวแวนนาไม</div>
+        <div id="metricSplitWhiteleg"><div class="loading-state">กำลังโหลด...</div></div>
+      </div>
+      <div class="card">
+        <div class="card__title">ผลผลิตและการลงลูกพันธุ์ - กุ้งกุลาดำ</div>
+        <div id="metricSplitBlackTiger"><div class="loading-state">กำลังโหลด...</div></div>
+      </div>
+    </div>
+
+    <!-- ส่วนที่ 3: แนวโน้มราคา -->
+    <div class="two-col-grid">
+      <div class="card">
+        <div class="card__title">แนวโน้มราคากุ้งขาวแวนนาไม (บาท/กก.) แยกตามขนาด</div>
+        <div style="height: 280px;"><canvas id="priceChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card__title">ราคาล่าสุดเทียบปีก่อน (บาท/กก.)</div>
+        <div id="priceTableWrap"><div class="loading-state">กำลังโหลด...</div></div>
+      </div>
+    </div>
+
+    <!-- ส่วนที่ 4-5: ส่งออก/นำเข้า (placeholder รอข้อมูล) -->
+    <div class="two-col-grid">
+      <div class="card">
+        <div class="card__title">การส่งออกกุ้งไทย</div>
+        <div class="placeholder-card">
+          <div class="placeholder-card__icon">📦</div>
+          <div class="placeholder-card__title">ยังไม่มีข้อมูลในระบบ <span class="badge-pending">รอเชื่อมต่อ</span></div>
+          <div class="placeholder-card__desc">ข้อมูล Google Sheet ปัจจุบันไม่มีมิติปริมาณ/มูลค่าการส่งออกหรือประเทศคู่ค้า<br>ต้องเชื่อมต่อแหล่งข้อมูลเพิ่มเติม (เช่น สถิติศุลกากร) จึงจะแสดงได้</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__title">การนำเข้ากุ้งไทย</div>
+        <div class="placeholder-card">
+          <div class="placeholder-card__icon">🚢</div>
+          <div class="placeholder-card__title">ยังไม่มีข้อมูลในระบบ <span class="badge-pending">รอเชื่อมต่อ</span></div>
+          <div class="placeholder-card__desc">ข้อมูล Google Sheet ปัจจุบันไม่มีมิติปริมาณ/มูลค่าการนำเข้าหรือประเทศต้นทาง<br>ต้องเชื่อมต่อแหล่งข้อมูลเพิ่มเติมจึงจะแสดงได้</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- แผนที่ + ตารางภาค (เดิม) -->
+    <div class="two-col-grid">
+      <div class="card">
+        <div class="card__title" id="mapCardTitle">แผนที่แสดงปริมาณลูกพันธุ์ที่จำหน่ายรายจังหวัด</div>
+        <div class="choropleth-container" id="mapContainer">
+          <div class="loading-state">กำลังโหลดแผนที่...</div>
+        </div>
+        <div class="choropleth-legend" id="mapLegend"></div>
+      </div>
+
+      <div class="card">
+        <div class="card__title" id="tableCardTitle">ตารางผลรวมรายภาค</div>
+        <div id="regionTableWrap">
+          <div class="loading-state">กำลังโหลดข้อมูล...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ส่วนที่ 6: Top 5 จังหวัดผู้ผลิตหลัก -->
+    <div class="two-col-grid">
+      <div class="card">
+        <div class="card__title">5 จังหวัดผู้ผลิตหลัก - กุ้งขาวแวนนาไม</div>
+        <div id="topProvincesWhiteleg"><div class="loading-state">กำลังโหลด...</div></div>
+      </div>
+      <div class="card">
+        <div class="card__title">5 จังหวัดผู้ผลิตหลัก - กุ้งกุลาดำ</div>
+        <div id="topProvincesBlackTiger"><div class="loading-state">กำลังโหลด...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/js/vendor/chart.umd.js"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/navbar.js"></script>
+  <script src="/assets/js/charts.js"></script>
+  <script src="/assets/js/thailandMap.js"></script>
+  <script>
+    const MONTH_LABELS_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const SPECIES_LABEL = { whiteleg: 'กุ้งขาวแวนนาไม', black_tiger: 'กุ้งกุลาดำ' };
+    const PRICE_SIZE_CATEGORIES = ['40', '50', '60', '70', '80', '90', '100'];
+    const MAP_METRIC_META = {
+      seed_distribution: { label: 'ปริมาณลูกพันธุ์ที่จำหน่าย', unitLabel: 'ล้านตัว' },
+      production_farm: { label: 'ผลผลิต (ฟาร์ม)', unitLabel: 'ตัน' }
+    };
+
+    let expandedRegions = new Set();
+    // selection: { type: 'region'|'province', value: string } | null
+    let selection = null;
+    let latestRegionOfProvince = new Map();
+    let latestByRegion = new Map();
+    let latestRegionsOrder = [];
+    let priceChart;
+
+    function formatNumber(n) {
+      return n == null ? '-' : n.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+    }
+
+    function formatPercent(value, total) {
+      if (!total) return '-';
+      return (value / total * 100).toLocaleString('th-TH', { maximumFractionDigits: 1 }) + '%';
+    }
+
+    // ค่า พ.ศ. ของ dropdown ปี -> ค.ศ. สำหรับ query ชีทราคาที่ใช้ปี ค.ศ.
+    function yearBEtoCE(yearBE) {
+      return parseInt(yearBE, 10) - 543;
+    }
+
+    function getSelectedMonths() {
+      const checked = Array.from(document.querySelectorAll('#monthFilter .month-checkbox:checked')).map((cb) => cb.value);
+      return checked.length === 12 ? [] : checked;
+    }
+
+    function populateYearOptions() {
+      const select = document.getElementById('yearFilter');
+      const currentBE = new Date().getFullYear() + 543;
+      for (let y = 2565; y <= currentBE; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = `พ.ศ. ${y}`;
+        if (y === currentBE) opt.selected = true;
+        select.appendChild(opt);
+      }
+
+      const monthGroup = document.getElementById('monthFilter');
+      const monthCheckboxesHtml = MONTH_LABELS_TH.map((label, i) => `
+        <label class="checkbox-group__item">
+          <input type="checkbox" class="month-checkbox" value="${i + 1}" />
+          ${label}
+        </label>
+      `).join('');
+      monthGroup.innerHTML = `
+        <label class="checkbox-group__item checkbox-group__item--all">
+          <input type="checkbox" id="monthAllCheckbox" />
+          ทั้งปี
+        </label>
+        ${monthCheckboxesHtml}
+      `;
+
+      const allCheckbox = document.getElementById('monthAllCheckbox');
+      const monthCheckboxes = Array.from(monthGroup.querySelectorAll('.month-checkbox'));
+      allCheckbox.addEventListener('change', () => {
+        monthCheckboxes.forEach((cb) => { cb.checked = allCheckbox.checked; });
+      });
+      monthCheckboxes.forEach((cb) => {
+        cb.addEventListener('change', () => {
+          allCheckbox.checked = monthCheckboxes.every((c) => c.checked);
+        });
+      });
+    }
+
+    // ดึงข้อมูลปีปัจจุบัน + ปีก่อนหน้า (เดือนเดียวกัน) พร้อมกัน แล้วคำนวณ %YoY
+    // sheetKind: 'monthly' (seed_distribution/seed_stocking/production_farm/production_capacity) หรือ 'prices'
+    async function fetchWithYoY(sheetKind, sheetType, yearBE, months, extraFilters = {}) {
+      if (sheetKind === 'prices') {
+        const yearCE = yearBEtoCE(yearBE);
+        const filtersNow = { yearFrom: yearCE, yearTo: yearCE, ...extraFilters };
+        const filtersPrev = { yearFrom: yearCE - 1, yearTo: yearCE - 1, ...extraFilters };
+        const [rowsNow, rowsPrev] = await Promise.all([
+          Api.get('/api/data/prices' + Api.buildQuery(filtersNow)),
+          Api.get('/api/data/prices' + Api.buildQuery(filtersPrev))
+        ]);
+        return { rowsNow, rowsPrev };
+      }
+
+      const filtersNow = { yearFrom: yearBE, yearTo: yearBE, ...extraFilters };
+      const filtersPrev = { yearFrom: yearBE - 1, yearTo: yearBE - 1, ...extraFilters };
+      if (months.length > 0) {
+        filtersNow.months = months;
+        filtersPrev.months = months;
+      }
+      const [rowsNow, rowsPrev] = await Promise.all([
+        Api.get(`/api/data/monthly/${sheetType}` + Api.buildQuery(filtersNow)),
+        Api.get(`/api/data/monthly/${sheetType}` + Api.buildQuery(filtersPrev))
+      ]);
+      return { rowsNow, rowsPrev };
+    }
+
+    function sumValue(rows) {
+      return rows.reduce((a, r) => a + (r.value || 0), 0);
+    }
+
+    function computeYoY(current, previous) {
+      if (!previous) return null;
+      return (current - previous) / previous * 100;
+    }
+
+    function deltaHtml(yoyPercent) {
+      if (yoyPercent == null) return '<div class="stat-tile__delta">ไม่มีข้อมูลปีก่อนเทียบ</div>';
+      const cls = yoyPercent > 0 ? 'up' : yoyPercent < 0 ? 'down' : '';
+      const arrow = yoyPercent > 0 ? '▲' : yoyPercent < 0 ? '▼' : '—';
+      return `<div class="stat-tile__delta ${cls}">${arrow} ${Math.abs(yoyPercent).toLocaleString('th-TH', { maximumFractionDigits: 2 })}% YOY</div>`;
+    }
+
+    function metricSplitDeltaHtml(yoyPercent) {
+      if (yoyPercent == null) return '<div class="metric-split__row-delta flat">ไม่มีข้อมูลปีก่อน</div>';
+      const cls = yoyPercent > 0 ? 'up' : yoyPercent < 0 ? 'down' : 'flat';
+      const arrow = yoyPercent > 0 ? '▲' : yoyPercent < 0 ? '▼' : '—';
+      return `<div class="metric-split__row-delta ${cls}">${arrow} ${Math.abs(yoyPercent).toLocaleString('th-TH', { maximumFractionDigits: 2 })}% YOY</div>`;
+    }
+
+    async function loadDashboard() {
+      const year = parseInt(document.getElementById('yearFilter').value, 10);
+      const months = getSelectedMonths();
+      const metric = document.getElementById('mapMetric').value;
+      selection = null;
+
+      const statGrid = document.getElementById('statGrid');
+      statGrid.innerHTML = '<div class="loading-state">กำลังโหลดข้อมูล...</div>';
+
+      await Promise.all([
+        loadStatGrid(year, months),
+        loadMetricSplit(year, months),
+        loadPriceSection(year),
+        loadMapAndTable(metric, year, months),
+        loadTopProvinces(year, months)
+      ]);
+    }
+
+    // ===== ส่วนที่ 1: Stat grid =====
+    async function loadStatGrid(year, months) {
+      const statGrid = document.getElementById('statGrid');
+
+      const [prodFarm, seedStocking, capacity, priceRows] = await Promise.all([
+        fetchWithYoY('monthly', 'production_farm', year, months),
+        fetchWithYoY('monthly', 'seed_stocking', year, months),
+        fetchWithYoY('monthly', 'production_capacity', year, months),
+        fetchWithYoY('prices', null, year, months, { sizeCategories: ['60'] })
+      ]);
+
+      const prodTotal = sumValue(prodFarm.rowsNow);
+      const prodPrev = sumValue(prodFarm.rowsPrev);
+      const seedTotal = sumValue(seedStocking.rowsNow);
+      const seedPrev = sumValue(seedStocking.rowsPrev);
+
+      const capWhitelegNow = capacity.rowsNow.filter((r) => r.species === 'whiteleg' && r.value != null && !r.is_anomaly);
+      const capWhitelegPrev = capacity.rowsPrev.filter((r) => r.species === 'whiteleg' && r.value != null && !r.is_anomaly);
+      const capBlackTigerNow = capacity.rowsNow.filter((r) => r.species === 'black_tiger' && r.value != null && !r.is_anomaly);
+      const capBlackTigerPrev = capacity.rowsPrev.filter((r) => r.species === 'black_tiger' && r.value != null && !r.is_anomaly);
+      const avg = (rows) => (rows.length > 0 ? rows.reduce((a, r) => a + r.value, 0) / rows.length : null);
+
+      const capWhitelegAvg = avg(capWhitelegNow);
+      const capWhitelegAvgPrev = avg(capWhitelegPrev);
+      const capBlackTigerAvg = avg(capBlackTigerNow);
+      const capBlackTigerAvgPrev = avg(capBlackTigerPrev);
+
+      const priceNow = priceRows.rowsNow.filter((r) => r.price_baht != null);
+      const pricePrev = priceRows.rowsPrev.filter((r) => r.price_baht != null);
+      const priceAvgNow = priceNow.length > 0 ? priceNow.reduce((a, r) => a + r.price_baht, 0) / priceNow.length : null;
+      const priceAvgPrev = pricePrev.length > 0 ? pricePrev.reduce((a, r) => a + r.price_baht, 0) / pricePrev.length : null;
+
+      statGrid.innerHTML = `
+        <div class="stat-tile">
+          <div class="stat-tile__label">ผลผลิตรวม (ตัน)</div>
+          <div class="stat-tile__value">${formatNumber(prodTotal)}</div>
+          ${deltaHtml(computeYoY(prodTotal, prodPrev))}
+        </div>
+        <div class="stat-tile">
+          <div class="stat-tile__label">การลงลูกพันธุ์รวม (ล้านตัว)</div>
+          <div class="stat-tile__value">${formatNumber(seedTotal)}</div>
+          ${deltaHtml(computeYoY(seedTotal, seedPrev))}
+        </div>
+        <div class="stat-tile">
+          <div class="stat-tile__label">ประสิทธิภาพผลิต - ขาวแวนนาไม (ตัน/ล้านตัว)</div>
+          <div class="stat-tile__value">${formatNumber(capWhitelegAvg)}</div>
+          ${deltaHtml(computeYoY(capWhitelegAvg, capWhitelegAvgPrev))}
+        </div>
+        <div class="stat-tile">
+          <div class="stat-tile__label">ประสิทธิภาพผลิต - กุลาดำ (ตัน/ล้านตัว)</div>
+          <div class="stat-tile__value">${formatNumber(capBlackTigerAvg)}</div>
+          ${deltaHtml(computeYoY(capBlackTigerAvg, capBlackTigerAvgPrev))}
+        </div>
+        <div class="stat-tile">
+          <div class="stat-tile__label">ราคากุ้งเฉลี่ย ขนาด 60 ตัว/กก. (บาท)</div>
+          <div class="stat-tile__value">${formatNumber(priceAvgNow)}</div>
+          ${deltaHtml(computeYoY(priceAvgNow, priceAvgPrev))}
+        </div>
+        <div class="stat-tile">
+          <div class="stat-tile__label">การส่งออก (ตัน)</div>
+          <div class="stat-tile__value" style="color: var(--text-muted); font-size: 1rem;">ไม่มีข้อมูล</div>
+          <div class="stat-tile__delta"><span class="badge-pending">รอเชื่อมต่อข้อมูล</span></div>
+        </div>
+      `;
+    }
+
+    // ===== ส่วนที่ 2: ผลผลิต+ลงลูกพันธุ์แยกชนิด =====
+    async function loadMetricSplit(year, months) {
+      const [prodFarm, seedStocking, capacity] = await Promise.all([
+        fetchWithYoY('monthly', 'production_farm', year, months),
+        fetchWithYoY('monthly', 'seed_stocking', year, months),
+        fetchWithYoY('monthly', 'production_capacity', year, months)
+      ]);
+
+      for (const species of ['whiteleg', 'black_tiger']) {
+        const containerId = species === 'whiteleg' ? 'metricSplitWhiteleg' : 'metricSplitBlackTiger';
+        const colorVar = species === 'whiteleg' ? '--series-1' : '--series-2';
+
+        const seedNow = sumValue(seedStocking.rowsNow.filter((r) => r.species === species));
+        const seedPrev = sumValue(seedStocking.rowsPrev.filter((r) => r.species === species));
+        const prodNow = sumValue(prodFarm.rowsNow.filter((r) => r.species === species));
+        const prodPrev = sumValue(prodFarm.rowsPrev.filter((r) => r.species === species));
+
+        const capRows = capacity.rowsNow.filter((r) => r.species === species && r.value != null && !r.is_anomaly);
+        const capAvg = capRows.length > 0 ? capRows.reduce((a, r) => a + r.value, 0) / capRows.length : null;
+
+        document.getElementById(containerId).innerHTML = `
+          <div class="metric-split__species"><span class="metric-split__dot" style="background: var(${colorVar});"></span>${SPECIES_LABEL[species]}</div>
+          <div class="metric-split__row">
+            <span class="metric-split__row-label">การลงลูกพันธุ์ (ล้านตัว)</span>
+            <span class="metric-split__row-value">
+              <div class="metric-split__row-number">${formatNumber(seedNow)}</div>
+              ${metricSplitDeltaHtml(computeYoY(seedNow, seedPrev))}
+            </span>
+          </div>
+          <div class="metric-split__row">
+            <span class="metric-split__row-label">ผลผลิต (ตัน)</span>
+            <span class="metric-split__row-value">
+              <div class="metric-split__row-number">${formatNumber(prodNow)}</div>
+              ${metricSplitDeltaHtml(computeYoY(prodNow, prodPrev))}
+            </span>
+          </div>
+          <div class="metric-split__row">
+            <span class="metric-split__row-label">ประสิทธิภาพการผลิต (ตัน/ล้านตัว)</span>
+            <span class="metric-split__row-value">
+              <div class="metric-split__row-number">${formatNumber(capAvg)}</div>
+            </span>
+          </div>
+        `;
+      }
+    }
+
+    // ===== ส่วนที่ 3: แนวโน้มราคา =====
+    async function loadPriceSection(year) {
+      const yearCE = yearBEtoCE(year);
+      const [rowsNow, rowsPrev] = await Promise.all([
+        Api.get('/api/data/prices' + Api.buildQuery({ yearFrom: yearCE, yearTo: yearCE })),
+        Api.get('/api/data/prices' + Api.buildQuery({ yearFrom: yearCE - 1, yearTo: yearCE - 1 }))
+      ]);
+
+      renderPriceChart(rowsNow);
+      renderPriceTable(rowsNow, rowsPrev, yearCE);
+    }
+
+    function renderPriceChart(rows) {
+      const style = getComputedStyle(document.documentElement);
+      const seriesVars = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5', '--series-6', '--series-7'];
+
+      const monthsPresent = [...new Set(rows.map((r) => r.month))].sort((a, b) => a - b);
+      const labels = monthsPresent.map((m) => MONTH_LABELS_TH[m - 1]);
+
+      const datasets = PRICE_SIZE_CATEGORIES.map((size, i) => {
+        const color = style.getPropertyValue(seriesVars[i % seriesVars.length]).trim();
+        const bySize = new Map(rows.filter((r) => r.size_category === size).map((r) => [r.month, r.price_baht]));
+        return {
+          label: `${size} ตัว/กก.`,
+          data: monthsPresent.map((m) => bySize.get(m) ?? null),
+          borderColor: color,
+          backgroundColor: color + '22',
+          borderWidth: 2,
+          pointRadius: 2,
+          fill: false,
+          tension: 0.15,
+          spanGaps: true
+        };
+      });
+
+      ShrimpCharts.destroy(priceChart);
+      priceChart = new Chart(document.getElementById('priceChart'), {
+        type: 'line',
+        data: { labels, datasets },
+        options: ShrimpCharts.baseOptions()
+      });
+    }
+
+    function renderPriceTable(rowsNow, rowsPrev, yearCE) {
+      const wrap = document.getElementById('priceTableWrap');
+      const avgBySize = (rows, size) => {
+        const filtered = rows.filter((r) => r.size_category === size && r.price_baht != null);
+        return filtered.length > 0 ? filtered.reduce((a, r) => a + r.price_baht, 0) / filtered.length : null;
+      };
+
+      const rowsHtml = PRICE_SIZE_CATEGORIES.map((size) => {
+        const now = avgBySize(rowsNow, size);
+        const prev = avgBySize(rowsPrev, size);
+        const yoy = computeYoY(now, prev);
+        const yoyText = yoy == null ? '-' : `${yoy > 0 ? '▲' : yoy < 0 ? '▼' : '—'} ${Math.abs(yoy).toLocaleString('th-TH', { maximumFractionDigits: 2 })}%`;
+        const yoyClass = yoy == null ? '' : yoy > 0 ? 'up' : yoy < 0 ? 'down' : '';
+        return `
+          <tr>
+            <td>${size} ตัว/กก.</td>
+            <td class="num">${formatNumber(prev)}</td>
+            <td class="num">${formatNumber(now)}</td>
+            <td class="num ${yoyClass === 'up' ? 'stat-tile__delta up' : yoyClass === 'down' ? 'stat-tile__delta down' : ''}">${yoyText}</td>
+          </tr>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>ขนาด</th><th>ค.ศ. ${yearCE - 1}</th><th>ค.ศ. ${yearCE}</th><th>YOY</th></tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // ===== แผนที่ + ตารางภาค =====
+    function sumByProvinceName(rows) {
+      const byProvince = new Map();
+      for (const r of rows) {
+        if (r.value == null) continue;
+        byProvince.set(r.province_name, (byProvince.get(r.province_name) || 0) + r.value);
+      }
+      return byProvince;
+    }
+
+    async function loadMapAndTable(metric, year, months) {
+      const filters = { yearFrom: year, yearTo: year };
+      if (months.length > 0) filters.months = months;
+      const rows = await Api.get(`/api/data/monthly/${metric}` + Api.buildQuery(filters));
+
+      await Promise.all([renderMap(metric, rows), renderRegionTable(metric, rows)]);
+    }
+
+    async function renderMap(metric, rows) {
+      const meta = MAP_METRIC_META[metric];
+      document.getElementById('mapCardTitle').textContent = `แผนที่แสดง${meta.label}รายจังหวัด`;
+
+      const valueByProvinceName = sumByProvinceName(rows);
+      const regionByProvinceName = new Map(rows.map((r) => [r.province_name, r.region]));
+      latestRegionOfProvince = regionByProvinceName;
+
+      const mapContainer = document.getElementById('mapContainer');
+      const { min, max } = await ThailandMap.render(mapContainer, valueByProvinceName, regionByProvinceName, {
+        unitLabel: meta.unitLabel,
+        onProvinceClick: (provinceName) => {
+          if (selection && selection.type === 'province' && selection.value === provinceName) {
+            setSelection(null);
+          } else {
+            setSelection({ type: 'province', value: provinceName });
+          }
+        }
+      });
+      ThailandMap.renderLegend(document.getElementById('mapLegend'), min, max, meta.unitLabel);
+      applySelectionVisuals();
+    }
+
+    function provincesInSelection() {
+      if (!selection) return null;
+      if (selection.type === 'province') return new Set([selection.value]);
+      const names = new Set();
+      for (const [name, region] of latestRegionOfProvince) {
+        if (region === selection.value) names.add(name);
+      }
+      return names;
+    }
+
+    function setSelection(next) {
+      selection = next;
+      if (selection && selection.type === 'province') {
+        const region = latestRegionOfProvince.get(selection.value);
+        if (region) expandedRegions.add(region);
+      }
+      applySelectionVisuals();
+      renderRegionTableRows();
+    }
+
+    function applySelectionVisuals() {
+      ThailandMap.applyHighlight(provincesInSelection());
+    }
+
+    async function renderRegionTable(metric, rows) {
+      const meta = MAP_METRIC_META[metric];
+      document.getElementById('tableCardTitle').textContent = `ตาราง${meta.label}รายภาค (${meta.unitLabel})`;
+
+      const byProvince = new Map();
+      const regionOfProvince = new Map();
+      for (const r of rows) {
+        if (r.value == null) continue;
+        byProvince.set(r.province_name, (byProvince.get(r.province_name) || 0) + r.value);
+        regionOfProvince.set(r.province_name, r.region);
+      }
+
+      const regions = await Api.get('/api/data/regions');
+      const byRegion = new Map(regions.map((r) => [r, { total: 0, provinces: [] }]));
+      for (const [provinceName, value] of byProvince) {
+        const region = regionOfProvince.get(provinceName);
+        if (!byRegion.has(region)) continue;
+        byRegion.get(region).total += value;
+        byRegion.get(region).provinces.push({ name: provinceName, value });
+      }
+
+      latestByRegion = byRegion;
+      latestRegionsOrder = regions;
+      renderRegionTableRows();
+    }
+
+    function renderRegionTableRows() {
+      const wrap = document.getElementById('regionTableWrap');
+      const countryTotal = [...latestByRegion.values()].reduce((sum, d) => sum + d.total, 0);
+
+      const rowsHtml = latestRegionsOrder.map((region) => {
+        const data = latestByRegion.get(region);
+        const isExpanded = expandedRegions.has(region);
+        const isRegionSelected = selection && selection.type === 'region' && selection.value === region;
+
+        const provinceRows = data.provinces
+          .sort((a, b) => b.value - a.value)
+          .map((p) => {
+            const isProvinceSelected = selection && selection.type === 'province' && selection.value === p.name;
+            return `
+              <div class="expandable-table__province-row ${isProvinceSelected ? 'expandable-table__province-row--selected' : ''}" data-province="${p.name}">
+                <span>${p.name}</span>
+                <span class="expandable-table__province-value">${formatNumber(p.value)}</span>
+                <span class="expandable-table__province-value">${formatPercent(p.value, countryTotal)}</span>
+              </div>
+            `;
+          }).join('');
+
+        return `
+          <div class="expandable-table__region-row ${isRegionSelected ? 'expandable-table__region-row--selected' : ''}" data-region="${region}">
+            <span class="expandable-table__region-name">
+              <span class="expandable-table__toggle-icon ${isExpanded ? 'expanded' : ''}" data-toggle-region="${region}">▶</span>
+              ${region}
+            </span>
+            <span class="expandable-table__region-value">${formatNumber(data.total)}</span>
+            <span class="expandable-table__region-value">${formatPercent(data.total, countryTotal)}</span>
+          </div>
+          <div class="expandable-table__province-rows ${isExpanded ? 'expanded' : ''}" data-province-list="${region}">
+            ${provinceRows || '<div class="expandable-table__province-row"><span>ไม่มีข้อมูล</span><span></span><span></span></div>'}
+          </div>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <div class="expandable-table">
+          <div class="expandable-table__header">
+            <span>ภาค</span>
+            <span>ผลรวม</span>
+            <span>สัดส่วน</span>
+          </div>
+          ${rowsHtml}
+        </div>
+      `;
+
+      wrap.querySelectorAll('.expandable-table__toggle-icon').forEach((icon) => {
+        icon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const region = icon.dataset.toggleRegion;
+          if (expandedRegions.has(region)) expandedRegions.delete(region);
+          else expandedRegions.add(region);
+          renderRegionTableRows();
+        });
+      });
+
+      wrap.querySelectorAll('.expandable-table__region-row').forEach((row) => {
+        row.addEventListener('click', () => {
+          const region = row.dataset.region;
+          if (selection && selection.type === 'region' && selection.value === region) {
+            setSelection(null);
+          } else {
+            setSelection({ type: 'region', value: region });
+          }
+        });
+      });
+
+      wrap.querySelectorAll('.expandable-table__province-row[data-province]').forEach((row) => {
+        row.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const province = row.dataset.province;
+          if (selection && selection.type === 'province' && selection.value === province) {
+            setSelection(null);
+          } else {
+            setSelection({ type: 'province', value: province });
+          }
+        });
+      });
+    }
+
+    // ===== ส่วนที่ 6: Top 5 จังหวัดผู้ผลิตหลัก =====
+    async function loadTopProvinces(year, months) {
+      const filters = { yearFrom: year, yearTo: year };
+      if (months.length > 0) filters.months = months;
+      const rows = await Api.get('/api/data/monthly/production_farm' + Api.buildQuery(filters));
+
+      for (const species of ['whiteleg', 'black_tiger']) {
+        const containerId = species === 'whiteleg' ? 'topProvincesWhiteleg' : 'topProvincesBlackTiger';
+        const speciesRows = rows.filter((r) => r.species === species && r.value != null);
+
+        const byProvince = new Map();
+        for (const r of speciesRows) {
+          byProvince.set(r.province_name, (byProvince.get(r.province_name) || 0) + r.value);
+        }
+        const total = [...byProvince.values()].reduce((a, v) => a + v, 0);
+        const top5 = [...byProvince.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+        const container = document.getElementById(containerId);
+        if (top5.length === 0) {
+          container.innerHTML = '<div class="empty-state">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</div>';
+          continue;
+        }
+
+        const rowsHtml = top5.map(([name, value], i) => `
+          <tr>
+            <td><span class="rank-table__rank">${i + 1}</span>${name}</td>
+            <td class="num">${formatNumber(value)}</td>
+            <td class="num">${formatPercent(value, total)}</td>
+          </tr>
+        `).join('');
+
+        container.innerHTML = `
+          <table class="rank-table">
+            <thead><tr><th>จังหวัด</th><th>ผลผลิต (ตัน)</th><th>สัดส่วน</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        `;
+      }
+    }
+
+    document.addEventListener('shrimp:ready', () => {
+      populateYearOptions();
+      loadDashboard().catch((err) => {
+        document.getElementById('statGrid').innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${err.message}</div>`;
+      });
+    });
+
+    document.getElementById('applyFilter').addEventListener('click', () => {
+      loadDashboard().catch((err) => alert(err.message));
+    });
+    document.getElementById('mapMetric').addEventListener('change', () => {
+      loadDashboard().catch((err) => alert(err.message));
+    });
+  </script>
+</body>
+</html>

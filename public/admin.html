@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>จัดการระบบ - ระบบข้อมูลกุ้งทะเล</title>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="page__header">
+      <h1 class="page__title">จัดการระบบ</h1>
+      <p class="page__subtitle">ตรวจสอบสถานะการซิงค์ข้อมูลจาก Google Sheet และสั่งซิงค์ข้อมูลด้วยตนเอง</p>
+    </div>
+
+    <div class="card">
+      <div class="card__title">สถานะการซิงค์ข้อมูลจาก Google Sheet</div>
+      <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: -4px;">ระบบซิงค์ข้อมูลอัตโนมัติทุก 15 นาที และทันทีที่เริ่มเปิด server</p>
+      <button class="btn btn-primary" id="manualSyncBtn" style="margin-bottom: 12px;">ซิงค์ข้อมูลตอนนี้</button>
+      <div id="syncStatusMsg" style="font-size: 0.8125rem; margin-bottom: 12px;"></div>
+      <div id="syncLogWrap"><div class="loading-state">กำลังโหลด...</div></div>
+    </div>
+  </div>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/navbar.js"></script>
+  <script>
+    async function loadSyncLog() {
+      const wrap = document.getElementById('syncLogWrap');
+      try {
+        const logs = await Api.get('/api/admin/sync-log');
+        if (logs.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">ยังไม่มีประวัติการซิงค์</div>';
+          return;
+        }
+        const statusLabel = { ok: 'สำเร็จ', ok_with_warnings: 'สำเร็จ (มีคำเตือน)', error: 'ล้มเหลว' };
+        const rowsHtml = logs.map((l) => `
+          <tr>
+            <td>${l.synced_at}</td>
+            <td>${statusLabel[l.status] || l.status}</td>
+            <td class="num">${l.rows_synced}</td>
+            <td>${l.error_message || '-'}</td>
+          </tr>
+        `).join('');
+        wrap.innerHTML = `
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>เวลา</th><th>สถานะ</th><th>จำนวนแถว</th><th>รายละเอียด</th></tr></thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        wrap.innerHTML = `<div class="empty-state">เกิดข้อผิดพลาด: ${err.message}</div>`;
+      }
+    }
+
+    document.getElementById('manualSyncBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('manualSyncBtn');
+      const msg = document.getElementById('syncStatusMsg');
+      btn.disabled = true;
+      btn.textContent = 'กำลังซิงค์ข้อมูล...';
+      msg.textContent = '';
+      try {
+        const result = await Api.post('/api/admin/sync', {});
+        msg.textContent = `ซิงค์สำเร็จ: ${result.rowsSynced} แถว (ใช้เวลา ${(result.durationMs / 1000).toFixed(1)} วินาที)`;
+        msg.style.color = 'var(--status-good)';
+        loadSyncLog();
+      } catch (err) {
+        msg.textContent = `ซิงค์ล้มเหลว: ${err.message}`;
+        msg.style.color = 'var(--status-critical)';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'ซิงค์ข้อมูลตอนนี้';
+      }
+    });
+
+    document.addEventListener('shrimp:ready', () => {
+      loadSyncLog();
+    });
+  </script>
+</body>
+</html>

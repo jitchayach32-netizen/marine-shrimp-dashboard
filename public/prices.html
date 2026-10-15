@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ราคากุ้งตลาดทะเลไทย - ระบบข้อมูลกุ้งทะเล</title>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="page__header">
+      <h1 class="page__title">ราคากุ้งขาวแวนนาไมเฉลี่ยรายเดือน ณ ตลาดทะเลไทย จ.สมุทรสาคร</h1>
+      <p class="page__subtitle">หน่วย: บาท/กก. - ข้อมูลนี้ไม่มีมิติรายจังหวัด เป็นราคาตลาดกลางแห่งเดียว</p>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-field">
+        <label for="sizeFilter">ขนาด (ตัว/กก., เลือกได้หลายรายการ)</label>
+        <select id="sizeFilter" multiple>
+          <option value="40">40 ตัว/กก.</option>
+          <option value="50">50 ตัว/กก.</option>
+          <option value="60" selected>60 ตัว/กก.</option>
+          <option value="70" selected>70 ตัว/กก.</option>
+          <option value="80" selected>80 ตัว/กก.</option>
+          <option value="90">90 ตัว/กก.</option>
+          <option value="100">100 ตัว/กก.</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="yearFromFilter">ปีเริ่มต้น (ค.ศ.)</label>
+        <select id="yearFromFilter"></select>
+      </div>
+      <div class="filter-field">
+        <label for="yearToFilter">ปีสิ้นสุด (ค.ศ.)</label>
+        <select id="yearToFilter"></select>
+      </div>
+      <button class="btn btn-primary" id="applyFilter">แสดงผล</button>
+    </div>
+
+    <div class="export-bar" id="exportBar"></div>
+
+    <div class="card">
+      <div class="card__title">แนวโน้มราคารายเดือน แยกตามขนาด</div>
+      <div style="height: 340px;"><canvas id="priceChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">ข้อมูลรายละเอียด</div>
+      <div id="tableWrap"><div class="loading-state">กำลังโหลดข้อมูล...</div></div>
+    </div>
+  </div>
+
+  <script src="/assets/js/vendor/chart.umd.js"></script>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/navbar.js"></script>
+  <script src="/assets/js/charts.js"></script>
+  <script>
+    const MONTH_LABELS_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const SIZE_COLORS = ['series-1', 'series-2', 'series-3', 'series-4', 'series-5', 'series-6', 'series-7'];
+    let priceChart;
+
+    function formatNumber(n) { return n == null ? '-' : n.toLocaleString('th-TH', { maximumFractionDigits: 2 }); }
+
+    function populateYears() {
+      const yearFrom = document.getElementById('yearFromFilter');
+      const yearTo = document.getElementById('yearToFilter');
+      const currentYear = new Date().getFullYear();
+      for (let y = 2022; y <= currentYear; y++) {
+        const o1 = document.createElement('option'); o1.value = y; o1.textContent = y;
+        yearFrom.appendChild(o1);
+        const o2 = document.createElement('option'); o2.value = y; o2.textContent = y;
+        if (y === currentYear) o2.selected = true;
+        yearTo.appendChild(o2);
+      }
+      yearFrom.value = 2022;
+    }
+
+    function getSelectedValues(el) {
+      return Array.from(el.selectedOptions).map((o) => o.value);
+    }
+
+    function currentFilters() {
+      return {
+        sizeCategories: getSelectedValues(document.getElementById('sizeFilter')),
+        yearFrom: document.getElementById('yearFromFilter').value,
+        yearTo: document.getElementById('yearToFilter').value
+      };
+    }
+
+    async function loadData() {
+      const tableWrap = document.getElementById('tableWrap');
+      tableWrap.innerHTML = '<div class="loading-state">กำลังโหลดข้อมูล...</div>';
+
+      const rows = await Api.get('/api/data/prices' + Api.buildQuery(currentFilters()));
+      renderTable(rows);
+      renderChart(rows);
+    }
+
+    function renderTable(rows) {
+      const tableWrap = document.getElementById('tableWrap');
+      if (rows.length === 0) {
+        tableWrap.innerHTML = '<div class="empty-state">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>';
+        return;
+      }
+      const rowsHtml = rows.slice(0, 500).map((r) => `
+        <tr>
+          <td>${r.year}</td>
+          <td>${MONTH_LABELS_TH[r.month - 1]}</td>
+          <td>${r.size_category} ตัว/กก.</td>
+          <td class="num">${formatNumber(r.price_baht)}</td>
+          <td class="num">${formatNumber(r.container_count)}</td>
+        </tr>
+      `).join('');
+      tableWrap.innerHTML = `
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>ปี (ค.ศ.)</th><th>เดือน</th><th>ขนาด</th><th>ราคา (บาท/กก.)</th><th>จำนวนตู้</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderChart(rows) {
+      const bySize = new Map();
+      for (const r of rows) {
+        if (!bySize.has(r.size_category)) bySize.set(r.size_category, new Map());
+        bySize.get(r.size_category).set(`${r.year}-${String(r.month).padStart(2, '0')}`, r.price_baht);
+      }
+
+      const allKeys = [...new Set(rows.map((r) => `${r.year}-${String(r.month).padStart(2, '0')}`))].sort();
+      const labels = allKeys.map((k) => {
+        const [y, m] = k.split('-');
+        return `${MONTH_LABELS_TH[parseInt(m, 10) - 1]} ${y}`;
+      });
+
+      const style = getComputedStyle(document.documentElement);
+      const datasets = [...bySize.keys()].sort((a, b) => Number(a) - Number(b)).map((size, i) => {
+        const color = style.getPropertyValue('--' + SIZE_COLORS[i % SIZE_COLORS.length]).trim();
+        return {
+          label: `${size} ตัว/กก.`,
+          data: allKeys.map((k) => bySize.get(size).get(k) ?? null),
+          borderColor: color,
+          backgroundColor: color + '22',
+          borderWidth: 2,
+          pointRadius: 2,
+          fill: false,
+          tension: 0.15,
+          spanGaps: true
+        };
+      });
+
+      ShrimpCharts.destroy(priceChart);
+      priceChart = new Chart(document.getElementById('priceChart'), {
+        type: 'line',
+        data: { labels, datasets },
+        options: ShrimpCharts.baseOptions()
+      });
+    }
+
+    function setupExportButtons() {
+      const exportBar = document.getElementById('exportBar');
+      exportBar.innerHTML = `
+        <a class="btn btn-secondary" id="exportCsv">ดาวน์โหลด CSV</a>
+        <a class="btn btn-secondary" id="exportExcel">ดาวน์โหลด Excel</a>
+        <a class="btn btn-secondary" id="exportTablePdf">ดาวน์โหลด Table PDF</a>
+        <a class="btn btn-secondary" id="exportFormPdf">ดาวน์โหลด Form PDF (รายงานสรุป)</a>
+      `;
+
+      const bindExport = (id, path) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', () => {
+          window.location.href = Api.downloadUrl(`/api/export/${path}/prices`, currentFilters());
+        });
+      };
+      bindExport('exportCsv', 'csv');
+      bindExport('exportExcel', 'excel');
+      bindExport('exportTablePdf', 'table-pdf');
+      bindExport('exportFormPdf', 'form-pdf');
+    }
+
+    document.addEventListener('shrimp:ready', () => {
+      setupExportButtons();
+      populateYears();
+      loadData().catch((err) => {
+        document.getElementById('tableWrap').innerHTML = `<div class="empty-state">โหลดข้อมูลไม่สำเร็จ: ${err.message}</div>`;
+      });
+    });
+
+    document.getElementById('applyFilter').addEventListener('click', () => {
+      loadData().catch((err) => alert(err.message));
+    });
+  </script>
+</body>
+</html>
