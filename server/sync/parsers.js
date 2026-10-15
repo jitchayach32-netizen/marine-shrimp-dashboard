@@ -178,22 +178,27 @@ function parseDocumentFactsSheet(rows, sheetType, provinceIdByName) {
   return { facts, unmatchedProvinces: [...unmatchedProvinces] };
 }
 
-// ชีท 8: ราคา ไม่มีจังหวัด เดือนอยู่คอลัมน์ 0 รูปแบบ " Mon YY" (มี leading space)
+// ชีท 8: ราคา ไม่มีจังหวัด เดือนอยู่คอลัมน์ 0 รูปแบบ "ม.ค. 2565" (ชื่อเดือนไทยย่อ + พ.ศ. 4 หลัก)
 // คอลัมน์คงที่: 0=เดือน, 1=40ตัว/กก, 2=50, 3=60, 4=70, 5=80, 6=90, 7=100, 8=จำนวนตู้
 const PRICE_SIZE_CATEGORIES = ['40', '50', '60', '70', '80', '90', '100'];
+
+const THAI_MONTH_NAMES_SHORT = {
+  'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4, 'พ.ค.': 5, 'มิ.ย.': 6,
+  'ก.ค.': 7, 'ส.ค.': 8, 'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12
+};
 
 function parsePricesSheet(rows) {
   const facts = [];
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     const monthText = (row[0] || '').trim();
-    const parsed = parseMonthHeaderFlexible(monthText);
+    const parsed = parseThaiMonthHeader(monthText);
     if (!parsed) continue;
 
     for (let i = 0; i < PRICE_SIZE_CATEGORIES.length; i++) {
       const price = parseNumber(row[1 + i]);
       facts.push({
-        year: parsed.yearCE,
+        year: parsed.yearBE,
         month: parsed.month,
         size_category: PRICE_SIZE_CATEGORIES[i],
         price_baht: price.value,
@@ -208,15 +213,14 @@ function parsePricesSheet(rows) {
   return { facts };
 }
 
-// ชีท 8 ใช้ ค.ศ. 2 หลัก (Jan 22 = ม.ค. 2022) ต่างจากชีทอื่นที่ใช้ พ.ศ.
-function parseMonthHeaderFlexible(text) {
-  const m = text.trim().match(/^([A-Za-z]{3})\s+(\d{2})$/);
+// "ม.ค. 2565" -> { month: 1, yearBE: 2565 }
+function parseThaiMonthHeader(text) {
+  const m = text.trim().match(/^([ก-ฮ.]+)\s+(\d{4})$/);
   if (!m) return null;
-  const month = THAI_MONTHS[m[1]];
+  const month = THAI_MONTH_NAMES_SHORT[m[1]];
   if (!month) return null;
-  const yy = parseInt(m[2], 10);
-  const yearCE = 2000 + yy;
-  return { month, yearCE };
+  const yearBE = parseInt(m[2], 10);
+  return { month, yearBE };
 }
 
 module.exports = {

@@ -15,7 +15,7 @@
 
     <div class="filter-bar">
       <div class="filter-field filter-field--checkboxes">
-        <label>ปี (ค.ศ.) - เลือกได้หลายปี</label>
+        <label>ปี (พ.ศ.) - เลือกได้หลายปี</label>
         <div class="checkbox-group" id="yearFilter"></div>
       </div>
       <button class="btn btn-primary" id="applyFilter">แสดงผล</button>
@@ -43,15 +43,15 @@
     function formatNumber(n) { return n == null ? '-' : n.toLocaleString('th-TH', { maximumFractionDigits: 2 }); }
 
     function populateYearOptions() {
-      const currentYear = new Date().getFullYear();
+      const currentBE = new Date().getFullYear() + 543;
       const years = [];
-      for (let y = 2022; y <= currentYear; y++) years.push(y);
+      for (let y = 2565; y <= currentBE; y++) years.push(y);
 
       const yearGroup = document.getElementById('yearFilter');
       yearGroup.innerHTML = years.map((y) => `
         <label class="checkbox-group__item">
-          <input type="checkbox" class="year-checkbox" value="${y}" ${y >= currentYear - 1 ? 'checked' : ''} />
-          ${y}
+          <input type="checkbox" class="year-checkbox" value="${y}" ${y >= currentBE - 1 ? 'checked' : ''} />
+          พ.ศ. ${y}
         </label>
       `).join('');
     }
@@ -109,7 +109,7 @@
       tableWrap.innerHTML = `
         <div class="data-table-wrap">
           <table class="data-table">
-            <thead><tr><th>ปี (ค.ศ.)</th><th>เดือน</th><th>ขนาด</th><th>ราคา (บาท/กก.)</th><th>จำนวนตู้</th></tr></thead>
+            <thead><tr><th>ปี (พ.ศ.)</th><th>เดือน</th><th>ขนาด</th><th>ราคา (บาท/กก.)</th><th>จำนวนตู้</th></tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
         </div>
@@ -125,7 +125,7 @@
       const container = document.getElementById('priceChartsContainer');
       container.innerHTML = selectedYears.map((year) => `
         <div class="card">
-          <div class="card__title">แนวโน้มราคารายเดือน ปี ค.ศ. ${year} - แยกตามขนาด</div>
+          <div class="card__title">แนวโน้มราคารายเดือน ปี พ.ศ. ${year} - แยกตามขนาด</div>
           <div style="height: 340px;"><canvas id="priceChart${year}"></canvas></div>
         </div>
       `).join('');

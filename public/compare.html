@@ -211,7 +211,7 @@
 
       if (config.kind === 'prices') {
         const rows = await Api.get('/api/data/prices' + Api.buildQuery({
-          yearFrom: yearBEtoCE(config.year), yearTo: yearBEtoCE(config.year), sizeCategories: [config.sizeCategory]
+          yearFrom: config.year, yearTo: config.year, sizeCategories: [config.sizeCategory]
         }));
         for (const r of rows) {
           if (r.price_baht == null) continue;
@@ -237,11 +237,6 @@
       return byMonth;
     }
 
-    // ชีท 8 (ราคา) ใช้ปี ค.ศ. ต่างจากชีทอื่นที่ใช้ พ.ศ. - แปลงให้ตรงก่อนยิง query
-    function yearBEtoCE(yearBE) {
-      return parseInt(yearBE, 10) - 543;
-    }
-
     async function runCompare() {
       const configs = readSeriesConfigs();
       if (configs.length === 0) {
@@ -263,7 +258,7 @@
 
     function seriesLabelFor(config) {
       if (config.kind === 'prices') {
-        return `${config.label} ขนาด ${config.sizeCategory} ตัว/กก. - ค.ศ.${yearBEtoCE(config.year)}`;
+        return `${config.label} ขนาด ${config.sizeCategory} ตัว/กก. - พ.ศ.${config.year}`;
       }
       const speciesLabel = config.species === 'whiteleg' ? 'ขาวแวนนาไม' : config.species === 'black_tiger' ? 'กุลาดำ' : 'รวมสายพันธุ์';
       const regionLabel = config.region || 'ทั้งประเทศ';

@@ -143,11 +143,6 @@
       return (value / total * 100).toLocaleString('th-TH', { maximumFractionDigits: 1 }) + '%';
     }
 
-    // ค่า พ.ศ. ของ dropdown ปี -> ค.ศ. สำหรับ query ชีทราคาที่ใช้ปี ค.ศ.
-    function yearBEtoCE(yearBE) {
-      return parseInt(yearBE, 10) - 543;
-    }
-
     function getSelectedMonths() {
       const checked = Array.from(document.querySelectorAll('#monthFilter .month-checkbox:checked')).map((cb) => cb.value);
       return checked.length === 12 ? [] : checked;
@@ -195,9 +190,8 @@
     // sheetKind: 'monthly' (seed_distribution/seed_stocking/production_farm/production_capacity) หรือ 'prices'
     async function fetchWithYoY(sheetKind, sheetType, yearBE, months, extraFilters = {}) {
       if (sheetKind === 'prices') {
-        const yearCE = yearBEtoCE(yearBE);
-        const filtersNow = { yearFrom: yearCE, yearTo: yearCE, ...extraFilters };
-        const filtersPrev = { yearFrom: yearCE - 1, yearTo: yearCE - 1, ...extraFilters };
+        const filtersNow = { yearFrom: yearBE, yearTo: yearBE, ...extraFilters };
+        const filtersPrev = { yearFrom: yearBE - 1, yearTo: yearBE - 1, ...extraFilters };
         const [rowsNow, rowsPrev] = await Promise.all([
           Api.get('/api/data/prices' + Api.buildQuery(filtersNow)),
           Api.get('/api/data/prices' + Api.buildQuery(filtersPrev))
@@ -373,14 +367,13 @@
 
     // ===== ส่วนที่ 3: แนวโน้มราคา =====
     async function loadPriceSection(year) {
-      const yearCE = yearBEtoCE(year);
       const [rowsNow, rowsPrev] = await Promise.all([
-        Api.get('/api/data/prices' + Api.buildQuery({ yearFrom: yearCE, yearTo: yearCE })),
-        Api.get('/api/data/prices' + Api.buildQuery({ yearFrom: yearCE - 1, yearTo: yearCE - 1 }))
+        Api.get('/api/data/prices' + Api.buildQuery({ yearFrom: year, yearTo: year })),
+        Api.get('/api/data/prices' + Api.buildQuery({ yearFrom: year - 1, yearTo: year - 1 }))
       ]);
 
       renderPriceChart(rowsNow);
-      renderPriceTable(rowsNow, rowsPrev, yearCE);
+      renderPriceTable(rowsNow, rowsPrev, year);
     }
 
     function renderPriceChart(rows) {
@@ -414,7 +407,7 @@
       });
     }
 
-    function renderPriceTable(rowsNow, rowsPrev, yearCE) {
+    function renderPriceTable(rowsNow, rowsPrev, yearBE) {
       const wrap = document.getElementById('priceTableWrap');
       const avgBySize = (rows, size) => {
         const filtered = rows.filter((r) => r.size_category === size && r.price_baht != null);
@@ -441,7 +434,7 @@
         <div class="data-table-wrap">
           <table class="data-table">
             <thead>
-              <tr><th>ขนาด</th><th>ค.ศ. ${yearCE - 1}</th><th>ค.ศ. ${yearCE}</th><th>YOY</th></tr>
+              <tr><th>ขนาด</th><th>พ.ศ. ${yearBE - 1}</th><th>พ.ศ. ${yearBE}</th><th>YOY</th></tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
           </table>

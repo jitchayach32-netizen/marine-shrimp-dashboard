@@ -73,7 +73,7 @@ function createDataRouter(repo) {
     res.json(facts);
   });
 
-  // ข้อมูลชีท 8 (ราคา): /api/data/prices?yearFrom=2022&yearTo=2026&sizeCategories=60,70
+  // ข้อมูลชีท 8 (ราคา): /api/data/prices?yearFrom=2565&yearTo=2569&sizeCategories=60,70
   router.get('/prices', async (req, res) => {
     const prices = await repo.getPrices({
       yearFrom: req.query.yearFrom ? parseInt(req.query.yearFrom, 10) : undefined,

@@ -38,7 +38,7 @@ const DOCUMENT_COLUMNS = [
 ];
 
 const PRICE_COLUMNS = [
-  { key: 'year', label: 'ปี (ค.ศ.)' },
+  { key: 'year', label: 'ปี (พ.ศ.)' },
   { key: 'month', label: 'เดือน' },
   { key: 'size_category', label: 'ขนาด (ตัว/กก.)' },
   { key: 'price_baht', label: 'ราคา (บาท)' },
