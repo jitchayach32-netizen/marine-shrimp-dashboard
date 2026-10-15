@@ -214,10 +214,12 @@ function parsePricesSheet(rows) {
 }
 
 // "ม.ค. 2565" -> { month: 1, yearBE: 2565 }
+// บาง cell ในต้นฉบับพิมพ์จุดท้ายเดือนตกหล่น (เช่น "มี.ค 2569" แทน "มี.ค. 2569") - normalize ด้วยการเติมจุดท้ายให้ก่อน lookup
 function parseThaiMonthHeader(text) {
-  const m = text.trim().match(/^([ก-ฮ.]+)\s+(\d{4})$/);
+  const m = text.trim().match(/^([ก-๏.]+)\s+(\d{4})$/);
   if (!m) return null;
-  const month = THAI_MONTH_NAMES_SHORT[m[1]];
+  const monthKey = m[1].endsWith('.') ? m[1] : m[1] + '.';
+  const month = THAI_MONTH_NAMES_SHORT[monthKey];
   if (!month) return null;
   const yearBE = parseInt(m[2], 10);
   return { month, yearBE };
